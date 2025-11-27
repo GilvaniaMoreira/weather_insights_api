@@ -13,7 +13,11 @@ import { WeatherController } from '../src/weather/weather.controller';
 
 describe('WeatherController (routes)', () => {
   let app: Express;
-  let weatherRepository: { create: ReturnType<typeof vi.fn>; findManyByCity: ReturnType<typeof vi.fn> };
+  let weatherRepository: {
+    create: ReturnType<typeof vi.fn>;
+    findManyByCity: ReturnType<typeof vi.fn>;
+    countByCity: ReturnType<typeof vi.fn>;
+  };
   let redisCacheService: {
     get: ReturnType<typeof vi.fn>;
     set: ReturnType<typeof vi.fn>;
@@ -28,6 +32,7 @@ describe('WeatherController (routes)', () => {
     weatherRepository = {
       create: vi.fn(),
       findManyByCity: vi.fn(),
+      countByCity: vi.fn(),
     };
 
     redisCacheService = {
@@ -70,7 +75,10 @@ describe('WeatherController (routes)', () => {
       handleRequest(res, () => controller.getWeatherSummary({ city: req.params.city })),
     );
     app.get('/weather/history/:city', (req: Request, res: Response) =>
-      handleRequest(res, () => controller.getWeatherHistory({ city: req.params.city })),
+      handleRequest(res, () => controller.getWeatherHistory(
+        { city: req.params.city },
+        { page: Number(req.query.page) || 1, limit: Number(req.query.limit) || 10 }
+      )),
     );
   });
 
@@ -137,12 +145,16 @@ describe('WeatherController (routes)', () => {
       { id: 1, city: 'São Paulo', temperature: 25, condition: 'sunny', recordedAt },
       { id: 2, city: 'São Paulo', temperature: 24, condition: 'cloudy', recordedAt },
     ]);
+    weatherRepository.countByCity.mockResolvedValue(2);
 
     const response = await request(app).get('/weather/history/Sao Paulo');
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(2);
-    expect(response.body[0]).toMatchObject({
+    expect(response.body.data).toHaveLength(2);
+    expect(response.body.total).toBe(2);
+    expect(response.body.page).toBe(1);
+    expect(response.body.limit).toBe(10);
+    expect(response.body.data[0]).toMatchObject({
       city: 'São Paulo',
       temperature: 25,
       condition: 'sunny',

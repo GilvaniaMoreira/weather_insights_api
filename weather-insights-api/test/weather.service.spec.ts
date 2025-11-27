@@ -10,7 +10,7 @@ import { WeatherService } from '../src/weather/weather.service';
 
 describe('WeatherService', () => {
   let service: WeatherService;
-  let weatherRepository: { create: ReturnType<typeof vi.fn>; findManyByCity: ReturnType<typeof vi.fn> };
+  let weatherRepository: { create: ReturnType<typeof vi.fn>; findManyByCity: ReturnType<typeof vi.fn>; countByCity: ReturnType<typeof vi.fn> };
   let redisCacheService: { get: ReturnType<typeof vi.fn>; set: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
   let httpService: { get: ReturnType<typeof vi.fn> };
   let configService: { get: ReturnType<typeof vi.fn> };
@@ -19,6 +19,7 @@ describe('WeatherService', () => {
     weatherRepository = {
       create: vi.fn(),
       findManyByCity: vi.fn(),
+      countByCity: vi.fn(),
     };
 
     redisCacheService = {
@@ -148,15 +149,18 @@ describe('WeatherService', () => {
     weatherRepository.findManyByCity.mockResolvedValue([
       { id: 1, city: 'São Paulo', temperature: 22, condition: 'clouds', recordedAt: date },
     ]);
+    weatherRepository.countByCity.mockResolvedValue(1);
 
-    const history = await service.getHistory('São Paulo');
+    const result = await service.getHistory('São Paulo');
 
-    expect(history).toHaveLength(1);
-    expect(history[0]).toBeInstanceOf(WeatherEntity);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toBeInstanceOf(WeatherEntity);
+    expect(result.total).toBe(1);
   });
 
   it('throws when no history exists for a city', async () => {
     weatherRepository.findManyByCity.mockResolvedValue([]);
+    weatherRepository.countByCity.mockResolvedValue(0);
 
     await expect(service.getHistory('Nowhere')).rejects.toThrow('No weather history available');
   });

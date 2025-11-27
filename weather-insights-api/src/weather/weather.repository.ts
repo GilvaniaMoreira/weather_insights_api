@@ -19,7 +19,10 @@ export class WeatherRepository {
     });
   }
 
-  findManyByCity(city: string, args: { since?: Date } = {}): Promise<WeatherRecord[]> {
+  findManyByCity(
+    city: string,
+    args: { since?: Date; skip?: number; take?: number } = {},
+  ): Promise<WeatherRecord[]> {
     const where: Prisma.WeatherRecordWhereInput = {
       city: {
         equals: city,
@@ -37,6 +40,19 @@ export class WeatherRepository {
       where,
       orderBy: {
         recordedAt: 'desc',
+      },
+      skip: args.skip,
+      take: args.take,
+    });
+  }
+
+  countByCity(city: string): Promise<number> {
+    return this.prisma.weatherRecord.count({
+      where: {
+        city: {
+          equals: city,
+          mode: 'insensitive',
+        },
       },
     });
   }
