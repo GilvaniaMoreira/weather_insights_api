@@ -1,10 +1,23 @@
 {
   "name": "weather-insights-api",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "API RESTful para consulta de dados meteorológicos com cache Redis e histórico persistente. Integração com OpenWeatherMap API.",
+  "author": "Gilvania",
   "private": true,
   "license": "UNLICENSED",
+  "keywords": [
+    "weather",
+    "api",
+    "nestjs",
+    "openweathermap",
+    "redis",
+    "prisma",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gilvania/weather-insights-api"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
