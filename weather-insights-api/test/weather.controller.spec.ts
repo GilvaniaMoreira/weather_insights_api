@@ -64,13 +64,13 @@ describe('WeatherController (routes)', () => {
     app = express();
     app.use(express.json());
     app.get('/weather/:city', (req: Request, res: Response) =>
-      handleRequest(res, () => controller.getCurrentWeather(req.params.city)),
+      handleRequest(res, () => controller.getCurrentWeather({ city: req.params.city })),
     );
     app.get('/weather/summary/:city', (req: Request, res: Response) =>
-      handleRequest(res, () => controller.getWeatherSummary(req.params.city)),
+      handleRequest(res, () => controller.getWeatherSummary({ city: req.params.city })),
     );
     app.get('/weather/history/:city', (req: Request, res: Response) =>
-      handleRequest(res, () => controller.getWeatherHistory(req.params.city)),
+      handleRequest(res, () => controller.getWeatherHistory({ city: req.params.city })),
     );
   });
 
