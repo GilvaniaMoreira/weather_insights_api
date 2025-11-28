@@ -1,0 +1,178 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: weather-insights-api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: weather-insights-api
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: weather-insights-api
+        run: npm run lint
+
+      - name: Check formatting
+        working-directory: weather-insights-api
+        run: npm run format:check
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: weather_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: weather-insights-api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: weather-insights-api
+        run: npm ci
+
+      - name: Setup test database
+        working-directory: weather-insights-api
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/weather_test
+        run: npx prisma migrate deploy
+
+      - name: Run unit tests
+        working-directory: weather-insights-api
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/weather_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: test-secret-key
+          OPENWEATHER_API_KEY: test-api-key
+        run: npm run test:cov
+
+      - name: Run E2E tests
+        working-directory: weather-insights-api
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/weather_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: test-secret-key
+          OPENWEATHER_API_KEY: test-api-key
+        run: npm run test:e2e
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          files: weather-insights-api/coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: weather-insights-api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: weather-insights-api
+        run: npm ci
+
+      - name: Generate Prisma Client
+        working-directory: weather-insights-api
+        run: npx prisma generate
+
+      - name: Build application
+        working-directory: weather-insights-api
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: weather-insights-api/dist
+          retention-days: 7
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run npm audit
+        working-directory: weather-insights-api
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+          command: test

@@ -125,15 +125,27 @@ export class WeatherService {
     };
   }
 
-  async getHistory(city: string): Promise<WeatherEntity[]> {
+  async getHistory(
+    city: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ data: WeatherEntity[]; total: number }> {
     const normalizedCity = this.normalizeCity(city);
-    const records = await this.weatherRepository.findManyByCity(normalizedCity);
+    const skip = (page - 1) * limit;
+
+    const [records, total] = await Promise.all([
+      this.weatherRepository.findManyByCity(normalizedCity, { skip, take: limit }),
+      this.weatherRepository.countByCity(normalizedCity),
+    ]);
 
     if (!records.length) {
       throw new NotFoundException(`No weather history available for ${normalizedCity}`);
     }
 
-    return records.map((record) => this.toEntity(record));
+    return {
+      data: records.map((record) => this.toEntity(record)),
+      total,
+    };
   }
 
   private buildCacheKey(city: string): string {
